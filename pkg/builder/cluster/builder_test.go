@@ -660,9 +660,10 @@ func TestStripStepStates(t *testing.T) {
 		build: &v1alpha1.Build{
 			// No source.
 			Spec: v1alpha1.BuildSpec{
-				Source: &v1alpha1.SourceSpec{
-					Git: &v1alpha1.GitSourceSpec{},
-				},
+				Sources: []*v1alpha1.SourceSpec{
+					&v1alpha1.SourceSpec{
+						Git: &v1alpha1.GitSourceSpec{},
+					}},
 			},
 			Status: v1alpha1.BuildStatus{},
 		},

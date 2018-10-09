@@ -60,7 +60,7 @@ func (op *operation) Checkpoint(build *v1alpha1.Build, status *v1alpha1.BuildSta
 
 	// Always ignore the first pod status, which is creds-init.
 	skip := 1
-	if build.Spec.Source != nil {
+	if build.Spec.Sources != nil {
 		// If the build specifies source, skip another container status, which
 		// is the source-fetching container.
 		skip++

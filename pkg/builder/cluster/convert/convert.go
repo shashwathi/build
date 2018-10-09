@@ -119,10 +119,34 @@ func gitToContainer(git *v1alpha1.GitSourceSpec) (*corev1.Container, error) {
 			"-url", git.Url,
 			"-revision", git.Revision,
 		},
-		VolumeMounts: implicitVolumeMounts,
+		VolumeMounts: getImplicitVolumeMounts(git.Url),
 		WorkingDir:   workspaceDir,
 		Env:          implicitEnvVars,
 	}, nil
+}
+
+func getrepoName(url string) string {
+	urlParts := strings.Split(url, "/")
+	if len(urlParts) == 0 {
+		return ""
+	}
+	return urlParts[len(urlParts)-1]
+}
+
+func getImplicitVolumeMounts(sourceURL string) []corev1.VolumeMount {
+	sourceName := getrepoName(sourceURL)
+
+	volumeName := "workspace"
+	if sourceName != "" {
+		volumeName = fmt.Sprintf("workspace/%s", sourceName)
+	}
+	return []corev1.VolumeMount{{
+		Name:      volumeName,
+		MountPath: workspaceDir,
+	}, {
+		Name:      "home",
+		MountPath: "/builder/home",
+	}}
 }
 
 func containerToGit(git corev1.Container) (*v1alpha1.SourceSpec, error) {
@@ -146,10 +170,11 @@ func gcsToContainer(gcs *v1alpha1.GCSSourceSpec) (*corev1.Container, error) {
 		return nil, validation.NewError("MissingLocation", "gcs sources are expected to specify a Location, got: %v", gcs)
 	}
 	return &corev1.Container{
-		Name:         initContainerPrefix + gcsSource,
-		Image:        *gcsFetcherImage,
-		Args:         []string{"--type", string(gcs.Type), "--location", gcs.Location},
-		VolumeMounts: implicitVolumeMounts,
+		Name:  initContainerPrefix + gcsSource,
+		Image: *gcsFetcherImage,
+		Args:  []string{"--type", string(gcs.Type), "--location", gcs.Location},
+		// mount under workspace/location
+		VolumeMounts: getImplicitVolumeMounts(gcs.Location),
 		WorkingDir:   workspaceDir,
 		Env:          implicitEnvVars,
 	}, nil
@@ -203,7 +228,7 @@ func makeCredentialInitializer(build *v1alpha1.Build, kubeclient kubernetes.Inte
 
 	// Collect the volume declarations, there mounts into the cred-init container, and the arguments to it.
 	volumes := []corev1.Volume{}
-	volumeMounts := implicitVolumeMounts
+	volumeMounts := getImplicitVolumeMounts("")
 	args := []string{}
 	for _, secretEntry := range sa.Secrets {
 		secret, err := kubeclient.CoreV1().Secrets(build.Namespace).Get(secretEntry.Name, metav1.GetOptions{})
@@ -257,31 +282,35 @@ func FromCRD(build *v1alpha1.Build, kubeclient kubernetes.Interface) (*corev1.Po
 	}
 
 	initContainers := []corev1.Container{*cred}
-	workspaceSubPath := ""
-	if source := build.Spec.Source; source != nil {
-		switch {
-		case source.Git != nil:
-			git, err := gitToContainer(source.Git)
-			if err != nil {
-				return nil, err
-			}
-			initContainers = append(initContainers, *git)
-		case source.GCS != nil:
-			gcs, err := gcsToContainer(source.GCS)
-			if err != nil {
-				return nil, err
-			}
-			initContainers = append(initContainers, *gcs)
-		case source.Custom != nil:
-			cust, err := customToContainer(source.Custom)
-			if err != nil {
-				return nil, err
-			}
-			// Prepend the custom container to the steps, to be augmented later with env, volume mounts, etc.
-			build.Spec.Steps = append([]corev1.Container{*cust}, build.Spec.Steps...)
-		}
+	workspaceSubPaths := make([]string, 10)
 
-		workspaceSubPath = build.Spec.Source.SubPath
+	for _, source := range build.Spec.Sources {
+		workspaceSubPath := ""
+		if source != nil {
+			switch {
+			case source.Git != nil:
+				git, err := gitToContainer(source.Git)
+				if err != nil {
+					return nil, err
+				}
+				initContainers = append(initContainers, *git)
+			case source.GCS != nil:
+				gcs, err := gcsToContainer(source.GCS)
+				if err != nil {
+					return nil, err
+				}
+				initContainers = append(initContainers, *gcs)
+			case source.Custom != nil:
+				cust, err := customToContainer(source.Custom)
+				if err != nil {
+					return nil, err
+				}
+				// Prepend the custom container to the steps, to be augmented later with env, volume mounts, etc.
+				build.Spec.Steps = append([]corev1.Container{*cust}, build.Spec.Steps...)
+			}
+			workspaceSubPath = source.SubPath
+		}
+		workspaceSubPaths = append(workspaceSubPaths, workspaceSubPath)
 	}
 
 	for i, step := range build.Spec.Steps {
@@ -294,13 +323,13 @@ func FromCRD(build *v1alpha1.Build, kubeclient kubernetes.Interface) (*corev1.Po
 		for _, vm := range step.VolumeMounts {
 			requestedVolumeMounts[filepath.Clean(vm.MountPath)] = true
 		}
-		for _, imp := range implicitVolumeMounts {
+		for _, imp := range getImplicitVolumeMounts("") {
 			if !requestedVolumeMounts[filepath.Clean(imp.MountPath)] {
 				// If the build's source specifies a subpath,
 				// use that in the implicit workspace volume
 				// mount.
-				if workspaceSubPath != "" && imp.Name == "workspace" {
-					imp.SubPath = workspaceSubPath
+				if workspaceSubPaths[i] != "" && strings.HasPrefix(imp.Name, "workspace") {
+					imp.SubPath = workspaceSubPaths[i]
 				}
 				step.VolumeMounts = append(step.VolumeMounts, imp)
 			}
@@ -385,7 +414,7 @@ func filterImplicitEnvVars(evs []corev1.EnvVar) []corev1.EnvVar {
 }
 
 func isImplicitVolumeMount(vm corev1.VolumeMount) bool {
-	for _, ivm := range implicitVolumeMounts {
+	for _, ivm := range getImplicitVolumeMounts("") {
 		if vm.Name == ivm.Name {
 			return true
 		}
@@ -464,8 +493,9 @@ func ToCRD(pod *corev1.Pod) (*v1alpha1.Build, error) {
 		steps = steps[1:]
 	}
 
-	var scm *v1alpha1.SourceSpec
+	var sc []*v1alpha1.SourceSpec
 	if conv, ok := containerToSourceMap[steps[0].Name]; ok {
+		var scm *v1alpha1.SourceSpec
 		src, err := conv(steps[0])
 		if err != nil {
 			return nil, err
@@ -477,12 +507,13 @@ func ToCRD(pod *corev1.Pod) (*v1alpha1.Build, error) {
 			scm.SubPath = subPath
 		}
 		steps = steps[1:]
+		sc = append(sc, scm)
 	}
 
 	return &v1alpha1.Build{
 		// TODO(mattmoor): What should we do for ObjectMeta stuff?
 		Spec: v1alpha1.BuildSpec{
-			Source:             scm,
+			Sources:            sc,
 			Steps:              steps,
 			ServiceAccountName: podSpec.ServiceAccountName,
 			Volumes:            volumes,

@@ -42,8 +42,8 @@ func TestParsing(t *testing.T) {
 	}
 
 	// Some basic checks on the body.
-	if bs.Source != nil {
-		t.Errorf("want no Source; got %v", bs.Source)
+	if bs.Sources != nil {
+		t.Errorf("want no Source; got %v", bs.Sources)
 	}
 	if len(bs.Steps) != 5 {
 		t.Errorf("Wrong len(bs.Steps); wanted 5, got %d", len(bs.Steps))

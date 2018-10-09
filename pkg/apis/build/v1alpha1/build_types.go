@@ -60,7 +60,7 @@ type BuildSpec struct {
 	Generation int64 `json:"generation,omitempty"`
 
 	// Source specifies the input to the build.
-	Source *SourceSpec `json:"source,omitempty"`
+	Sources []*SourceSpec `json:"sources,omitempty"`
 
 	// Steps are the steps of the build; each step is run sequentially with the
 	// source mounted into /workspace.

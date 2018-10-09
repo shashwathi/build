@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-source:
-  custom:
-    image: gcr.io/google-containers/hg:latest
-    args: ["clone", "https://my.source.io/foo-bar/baz"]
+sources:
+  - custom:
+      image: gcr.io/google-containers/hg:latest
+      args: ["clone", "https://my.source.io/foo-bar/baz"]
 steps:
 - name: helloworld
   image: gcr.io/google-containers/busybox
