@@ -102,7 +102,8 @@ func IsTimeout(status *v1alpha1.BuildStatus, buildTimeout *metav1.Duration) bool
 	return time.Since(status.StartTime.Time).Seconds() > timeout.Seconds()
 }
 
-// ErrorMessage returns the error message from the status.
+//ErrorMessage returns the error message from the status.
+// TODO(shashwathi): Move this into test helpers
 func ErrorMessage(status *v1alpha1.BuildStatus) (string, bool) {
 	if status == nil || len(status.Conditions) == 0 {
 		return "", false

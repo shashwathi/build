@@ -328,11 +328,11 @@ func TestValidateBuild(t *testing.T) {
 			}
 			testLogger := zap.NewNop().Sugar()
 
-			ac := &Controller{
+			ac := &Reconciler{
 				builder:        &nop.Builder{},
 				kubeclientset:  client,
 				buildclientset: buildClient,
-				logger:         testLogger,
+				Logger:         testLogger,
 			}
 
 			verr := ac.validateBuild(c.build)

@@ -80,6 +80,8 @@ func (op *operation) Checkpoint(build *v1alpha1.Build, status *v1alpha1.BuildSta
 		Status: corev1.ConditionUnknown,
 		Reason: "Building",
 	})
+	// Update status
+	build.Status = *status
 	return nil
 }
 
@@ -249,6 +251,7 @@ func (b *builder) registerDoneCallback(namespace, name string, podCh chan *corev
 	defer b.mux.Unlock()
 	k := getKey(namespace, name)
 	if _, ok := b.callbacks[k]; ok {
+		// TODO(shashwathi): Why is there need to return error
 		return fmt.Errorf("another process is already waiting on %q", k)
 	}
 	b.callbacks[k] = podCh
@@ -272,15 +275,16 @@ func (b *builder) addPodEvent(obj interface{}) {
 
 	if ch, ok := b.callbacks[key]; ok {
 		// Send the person listening the message.
+		b.logger.Infof("REM: New add/update pod event: podname %s", pod.Name)
 		ch <- pod
 		delete(b.callbacks, key)
 	} else {
 		b.logger.Errorf("Saw %q update, but nothing was watching for it!", key)
 	}
 
-	//Remove this callback from our map
+	//Remove callback key from our map
 	if isDone(pod) {
-		b.logger.Debugf("Build finished, deleting the key %q", key)
+		b.logger.Debugf("Build finished, pods status %s , deleting the key %q", pod.Status.Phase, key)
 		delete(b.callbacks, key)
 	}
 }
@@ -295,7 +299,11 @@ func (b *builder) updatePodEvent(old, new interface{}) {
 func (b *builder) deletePodEvent(obj interface{}) {
 	// TODO(mattmoor): If a pod gets deleted and someone's watching, we should propagate our
 	// own error message so that we don't leak a go routine waiting forever.
-	b.logger.Errorf("NYI: delete event for: %v", obj)
+	b.logger.Errorf("NYI: delete pod event for obj: %v", obj)
+	// Delete the key
+	pod := obj.(*corev1.Pod)
+	key := getKey(pod.Namespace, pod.Name)
+	delete(b.callbacks, key)
 }
 
 func isDone(pod *corev1.Pod) bool {

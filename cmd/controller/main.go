@@ -32,11 +32,10 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	onclusterbuilder "github.com/knative/build/pkg/builder/cluster"
-	"github.com/knative/build/pkg/controller"
-	buildctrl "github.com/knative/build/pkg/controller/build"
 	"github.com/knative/build/pkg/reconciler/build"
 	"github.com/knative/build/pkg/reconciler/buildtemplate"
 	"github.com/knative/build/pkg/reconciler/clusterbuildtemplate"
+	"github.com/knative/pkg/controller"
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	informers "github.com/knative/build/pkg/client/informers/externalversions"
@@ -100,7 +99,7 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	buildInformerFactory := informers.NewSharedInformerFactory(buildClient, time.Second*30)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
-
+	podsInformer := kubeInformerFactory.Core().V1().Pods()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	buildTemplateInformer := buildInformerFactory.Build().V1alpha1().BuildTemplates()
 	clusterBuildTemplateInformer := buildInformerFactory.Build().V1alpha1().ClusterBuildTemplates()
@@ -109,12 +108,8 @@ func main() {
 	bldr := onclusterbuilder.NewBuilder(kubeClient, kubeInformerFactory, logger)
 
 	// Build all of our controllers, with the clients constructed above.
-	controllers := []controller.Interface{
-		// TODO(mattmoor): Move the Build controller logic into pkg/reconciler/build
-		buildctrl.NewController(bldr, kubeClient, buildClient,
-			kubeInformerFactory, buildInformerFactory, logger),
-
-		build.NewController(logger, kubeClient, buildClient, buildInformer),
+	controllers := []*controller.Impl{
+		build.NewController(logger, kubeClient, buildClient, buildInformerFactory, podsInformer, bldr),
 		clusterbuildtemplate.NewController(logger, kubeClient, buildClient,
 			cachingClient, clusterBuildTemplateInformer, imageInformer),
 		buildtemplate.NewController(logger, kubeClient, buildClient,
