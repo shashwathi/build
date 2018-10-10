@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 sources:
-  git:
-    url: https://source.developers.google.com/p/a-project/r/secret-stuff
-    revision: refs/pulls/179/head
+  - git:
+      url: https://source.developers.google.com/p/a-project/r/secret-stuff
+      revision: refs/pulls/179/head
 steps:
 - name: helloworld
   image: gcr.io/google-containers/busybox

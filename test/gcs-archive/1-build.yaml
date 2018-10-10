@@ -19,8 +19,8 @@ metadata:
     expect: succeeded
 spec:
   source:
-    gcs:
-      type: Archive
-      location: gs://build-crd-tests/rules_docker-master.zip
+    - gcs:
+        type: Archive
+        location: gs://build-crd-tests/rules_docker-master.zip
   template:
     name: list-files-template

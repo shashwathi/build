@@ -282,10 +282,11 @@ func FromCRD(build *v1alpha1.Build, kubeclient kubernetes.Interface) (*corev1.Po
 	}
 
 	initContainers := []corev1.Container{*cred}
-	workspaceSubPaths := make([]string, 10)
+	workspaceSubPaths := []string{}
 
 	for _, source := range build.Spec.Sources {
-		workspaceSubPath := ""
+		fmt.Printf("\n volumes sub path source: %v", workspaceSubPaths)
+		var workspaceSubPath string
 		if source != nil {
 			switch {
 			case source.Git != nil:
@@ -310,9 +311,11 @@ func FromCRD(build *v1alpha1.Build, kubeclient kubernetes.Interface) (*corev1.Po
 			}
 			workspaceSubPath = source.SubPath
 		}
+		fmt.Printf("\n volumes sub path after source: %v", workspaceSubPaths)
 		workspaceSubPaths = append(workspaceSubPaths, workspaceSubPath)
 	}
 
+	fmt.Printf("\n volumes sub path finally: %v", workspaceSubPaths)
 	for i, step := range build.Spec.Steps {
 		step.Env = append(implicitEnvVars, step.Env...)
 		// TODO(mattmoor): Check that volumeMounts match volumes.
@@ -328,8 +331,10 @@ func FromCRD(build *v1alpha1.Build, kubeclient kubernetes.Interface) (*corev1.Po
 				// If the build's source specifies a subpath,
 				// use that in the implicit workspace volume
 				// mount.
-				if workspaceSubPaths[i] != "" && strings.HasPrefix(imp.Name, "workspace") {
-					imp.SubPath = workspaceSubPaths[i]
+				if len(workspaceSubPaths) > i {
+					if workspaceSubPaths[i] != "" && strings.HasPrefix(imp.Name, "workspace") {
+						imp.SubPath = workspaceSubPaths[i]
+					}
 				}
 				step.VolumeMounts = append(step.VolumeMounts, imp)
 			}

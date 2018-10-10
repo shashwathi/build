@@ -19,10 +19,10 @@ metadata:
     expect: succeeded
 spec:
   serviceAccountName: test-build-robot-git-ssh
-  source:
-    git:
-      url: git@github.com:knative/build.git
-      revision: master
+  sources:
+    - git:
+        url: git@github.com:knative/build.git
+        revision: master
 
   steps:
   - name: config

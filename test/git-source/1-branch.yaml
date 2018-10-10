@@ -18,9 +18,9 @@ metadata:
   labels:
     expect: succeeded
 spec:
-  source:
-    git:
-      url: https://github.com/bazelbuild/rules_docker
-      revision: master
+  sources:
+    - git:
+        url: https://github.com/bazelbuild/rules_docker
+        revision: master
   template:
     name: dump-workspace-template

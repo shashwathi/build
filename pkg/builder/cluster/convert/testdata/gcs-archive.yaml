@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-source:
-  gcs:
-    type: Archive
-    location: gs://bucket/my/stuff.tar.gz
+sources:
+  - gcs:
+      type: Archive
+      location: gs://bucket/my/stuff.tar.gz
 steps:
 - name: helloworld
   image: gcr.io/google-containers/busybox

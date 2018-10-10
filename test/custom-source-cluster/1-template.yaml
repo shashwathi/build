@@ -18,14 +18,14 @@ metadata:
   labels:
     expect: succeeded
 spec:
-  source:
-    custom:
-      image: gcr.io/cloud-builders/git:latest
-      args: [
-        "clone", "https://github.com/bazelbuild/rules_docker.git",
-        # Clone into another-directory/...
-        "another-directory",
-      ]
+  sources:
+    - custom:
+        image: gcr.io/cloud-builders/git:latest
+        args: [
+          "clone", "https://github.com/bazelbuild/rules_docker.git",
+          # Clone into another-directory/...
+          "another-directory",
+        ]
   template:
     name: dump-cluster-build-template
     kind: ClusterBuildTemplate
